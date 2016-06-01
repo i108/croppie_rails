@@ -1,6 +1,6 @@
 # Croppie Rails
 
-A gem to automate using [Croopie](http://foliotek.github.io/Croppie) with Rails
+A gem to automate using [Croppie](http://foliotek.github.io/Croppie) with Rails
 
 ## Usage
 
