@@ -22,17 +22,17 @@ Or install it yourself as:
 
 Include javascript file in app/assets/javascripts/application.js:
 
-    //= require croppie    
+    //= require croppie
 
 Include stylesheet file on app/assets/stylesheets/application.css:
 
-    *= require croppie   
+    *= require croppie
 
 ## Examples
 
 Include javascript file in app/assets/javascripts/application.js:
 
-    //= require demo_croppie   
+    //= require demo_croppie
 
 and the view
 
@@ -43,7 +43,7 @@ and the view
   Demo.init("YOUR_IMAGE.jpg");
 </script>
 ```
-and "Voalá"    
+and "Voalá"
 
 ## Contributing
 
