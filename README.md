@@ -22,17 +22,23 @@ Or install it yourself as:
 
 Include javascript file in app/assets/javascripts/application.js:
 
-    //= require croppie
+```ruby
+//= require croppie
+```
 
 Include stylesheet file on app/assets/stylesheets/application.css:
 
-    *= require croppie
+```ruby
+*= require croppie
+```
 
 ## Examples
 
 Include javascript file in app/assets/javascripts/application.js:
 
-    //= require demo_croppie
+```ruby
+//= require demo_croppie
+```
 
 and the view
 
@@ -50,6 +56,9 @@ and "Voalá"
 Bug reports and pull requests are welcome on GitHub at https://github.com/luizpicolo/croppie_rails. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
 
 ##  Versions
+
+croppie_rails: 2.3.0    
+croppie: 2.3.0
 
 croppie_rails: 1.2.0    
 croppie: 2.1.1
