@@ -2,7 +2,7 @@
  * Croppie
  * Copyright 2016
  * Foliotek
- * Version: 2.1.1
+ * Version: 2.3.0
  *************************/
 (function (root, factory) {
     if (typeof define === 'function' && define.amd) {
@@ -17,10 +17,25 @@
     }
 }(this, function (exports) {
 
+    /* Polyfills */
     if (typeof Promise !== 'function') {
         /*! promise-polyfill 3.1.0 */
         !function(a){function b(a,b){return function(){a.apply(b,arguments)}}function c(a){if("object"!=typeof this)throw new TypeError("Promises must be constructed via new");if("function"!=typeof a)throw new TypeError("not a function");this._state=null,this._value=null,this._deferreds=[],i(a,b(e,this),b(f,this))}function d(a){var b=this;return null===this._state?void this._deferreds.push(a):void k(function(){var c=b._state?a.onFulfilled:a.onRejected;if(null===c)return void(b._state?a.resolve:a.reject)(b._value);var d;try{d=c(b._value)}catch(e){return void a.reject(e)}a.resolve(d)})}function e(a){try{if(a===this)throw new TypeError("A promise cannot be resolved with itself.");if(a&&("object"==typeof a||"function"==typeof a)){var c=a.then;if("function"==typeof c)return void i(b(c,a),b(e,this),b(f,this))}this._state=!0,this._value=a,g.call(this)}catch(d){f.call(this,d)}}function f(a){this._state=!1,this._value=a,g.call(this)}function g(){for(var a=0,b=this._deferreds.length;b>a;a++)d.call(this,this._deferreds[a]);this._deferreds=null}function h(a,b,c,d){this.onFulfilled="function"==typeof a?a:null,this.onRejected="function"==typeof b?b:null,this.resolve=c,this.reject=d}function i(a,b,c){var d=!1;try{a(function(a){d||(d=!0,b(a))},function(a){d||(d=!0,c(a))})}catch(e){if(d)return;d=!0,c(e)}}var j=setTimeout,k="function"==typeof setImmediate&&setImmediate||function(a){j(a,1)},l=Array.isArray||function(a){return"[object Array]"===Object.prototype.toString.call(a)};c.prototype["catch"]=function(a){return this.then(null,a)},c.prototype.then=function(a,b){var e=this;return new c(function(c,f){d.call(e,new h(a,b,c,f))})},c.all=function(){var a=Array.prototype.slice.call(1===arguments.length&&l(arguments[0])?arguments[0]:arguments);return new c(function(b,c){function d(f,g){try{if(g&&("object"==typeof g||"function"==typeof g)){var h=g.then;if("function"==typeof h)return void h.call(g,function(a){d(f,a)},c)}a[f]=g,0===--e&&b(a)}catch(i){c(i)}}if(0===a.length)return b([]);for(var e=a.length,f=0;f<a.length;f++)d(f,a[f])})},c.resolve=function(a){return a&&"object"==typeof a&&a.constructor===c?a:new c(function(b){b(a)})},c.reject=function(a){return new c(function(b,c){c(a)})},c.race=function(a){return new c(function(b,c){for(var d=0,e=a.length;e>d;d++)a[d].then(b,c)})},c._setImmediateFn=function(a){k=a},"undefined"!=typeof module&&module.exports?module.exports=c:a.Promise||(a.Promise=c)}(this);
     }
+
+    if ( typeof window.CustomEvent !== "function" ) {
+        (function(){
+            function CustomEvent ( event, params ) {
+                params = params || { bubbles: false, cancelable: false, detail: undefined };
+                var evt = document.createEvent( 'CustomEvent' );
+                evt.initCustomEvent( event, params.bubbles, params.cancelable, params.detail );
+                return evt;
+            }
+            CustomEvent.prototype = window.Event.prototype;
+            window.CustomEvent = CustomEvent;
+        }());
+    }
+    /* End Polyfills */
 
     var cssPrefixes = ['Webkit', 'Moz', 'ms'],
         emptyStyles = document.createElement('div').style,
@@ -54,7 +69,7 @@
         for (var property in source) {
             if (source[property] && source[property].constructor && source[property].constructor === Object) {
                 destination[property] = destination[property] || {};
-                arguments.callee(destination[property], source[property]);
+                deepExtend(destination[property], source[property]);
             } else {
                 destination[property] = source[property];
             }
@@ -317,6 +332,7 @@
             width: self.options.viewport.width + 'px',
             height: self.options.viewport.height + 'px'
         });
+        viewport.setAttribute('tabindex', 0);
 
         addClass(self.elements.preview, 'cr-image');
         addClass(overlay, 'cr-overlay');
@@ -377,12 +393,15 @@
 
     function _hasExif() {
         // todo - remove options.exif after deprecation
-        return (this.options.enableExif || this.options.exif) && window.EXIF;
+        return this.options.enableExif && window.EXIF;
     }
 
     function _setZoomerVal(v) {
         if (this.options.enableZoom) {
-            this.elements.zoomer.value = fix(v, 4);
+            var z = this.elements.zoomer,
+                val = fix(v, 4);
+
+            z.value = Math.max(z.min, Math.min(z.max, val));
         }
     }
 
@@ -394,7 +413,7 @@
         addClass(wrap, 'cr-slider-wrap');
         addClass(zoomer, 'cr-slider');
         zoomer.type = 'range';
-        zoomer.step = '0.01';
+        zoomer.step = '0.0001';
         zoomer.value = 1;
         zoomer.style.display = self.options.showZoomer ? '' : 'none';
 
@@ -429,7 +448,7 @@
 
             ev.preventDefault();
             _setZoomerVal.call(self, targetZoom);
-            change();
+            change.call(self);
         }
 
         self.elements.zoomer.addEventListener('input', change);// this is being fired twice on keypress
@@ -445,10 +464,20 @@
         var self = this,
             transform = ui ? ui.transform : Transform.parse(self.elements.preview),
             vpRect = ui ? ui.viewportRect : self.elements.viewport.getBoundingClientRect(),
-            origin = ui ? ui.origin : new TransformOrigin(self.elements.preview);
+            origin = ui ? ui.origin : new TransformOrigin(self.elements.preview),
+            transCss = {};
+
+        function applyCss() {
+            var transCss = {};
+            transCss[CSS_TRANSFORM] = transform.toString();
+            transCss[CSS_TRANS_ORG] = origin.toString();
+            css(self.elements.preview, transCss);
+        }
 
         self._currentZoom = ui ? ui.value : self._currentZoom;
         transform.scale = self._currentZoom;
+        applyCss();
+
 
         if (self.options.enforceBoundary) {
             var boundaries = _getVirtualBoundaries.call(self, vpRect),
@@ -475,12 +504,7 @@
                 transform.y = transBoundaries.minY;
             }
         }
-
-        var transCss = {};
-        transCss[CSS_TRANSFORM] = transform.toString();
-        transCss[CSS_TRANS_ORG] = origin.toString();
-        css(self.elements.preview, transCss);
-
+        applyCss();
         _debouncedOverlay.call(self);
         _triggerUpdate.call(self);
     }
@@ -497,7 +521,6 @@
             curImgHeight = imgRect.height,
             halfWidth = vpWidth / 2,
             halfHeight = vpHeight / 2;
-
 
         var maxX = ((halfWidth / scale) - centerFromBoundaryX) * -1;
         var minX = maxX - ((curImgWidth * (1 / scale)) - (vpWidth * (1 / scale)));
@@ -560,7 +583,84 @@
             originalX,
             originalY,
             originalDistance,
-            vpRect;
+            vpRect,
+            transform;
+
+        function assignTransformCoordinates(deltaX, deltaY) {
+            var imgRect = self.elements.preview.getBoundingClientRect(),
+                top = transform.y + deltaY,
+                left = transform.x + deltaX;
+
+            if (self.options.enforceBoundary) {
+                if (vpRect.top > imgRect.top + deltaY && vpRect.bottom < imgRect.bottom + deltaY) {
+                    transform.y = top;
+                }
+
+                if (vpRect.left > imgRect.left + deltaX && vpRect.right < imgRect.right + deltaX) {
+                    transform.x = left;
+                }
+            }
+            else {
+                transform.y = top;
+                transform.x = left;
+            }
+        }
+
+        function keyDown(ev) {
+            var LEFT_ARROW  = 37,
+                UP_ARROW    = 38,
+                RIGHT_ARROW = 39,
+                DOWN_ARROW  = 40;
+
+            if (ev.shiftKey && (ev.keyCode == UP_ARROW || ev.keyCode == DOWN_ARROW)) {
+                var zoom = 0.0;
+                if (ev.keyCode == UP_ARROW) {
+                    zoom = parseFloat(self.elements.zoomer.value, 10) + parseFloat(self.elements.zoomer.step, 10)
+                }
+                else {
+                    zoom = parseFloat(self.elements.zoomer.value, 10) - parseFloat(self.elements.zoomer.step, 10)
+                }
+                self.setZoom(zoom);
+            }
+            else if (ev.keyCode >= 37 && ev.keyCode <= 40) {
+                ev.preventDefault();
+                var movement = parseKeyDown(ev.keyCode);
+
+                transform = Transform.parse(self.elements.preview);
+                document.body.style[CSS_USERSELECT] = 'none';
+                vpRect = self.elements.viewport.getBoundingClientRect();
+                keyMove(movement);
+            };
+
+            function parseKeyDown(key) {
+                switch (key) {
+                    case LEFT_ARROW:
+                        return [1, 0];
+                    case UP_ARROW:
+                        return [0, 1];
+                    case RIGHT_ARROW:
+                        return [-1, 0];
+                    case DOWN_ARROW:
+                        return [0, -1];
+                };
+            };
+        }
+
+        function keyMove(movement) {
+            var deltaX = movement[0],
+                deltaY = movement[1],
+                newCss = {};
+
+            assignTransformCoordinates(deltaX, deltaY);
+
+            newCss[CSS_TRANSFORM] = transform.toString();
+            css(self.elements.preview, newCss);
+            _updateOverlay.call(self);
+            document.body.style[CSS_USERSELECT] = '';
+            _updateCenterPoint.call(self);
+            _triggerUpdate.call(self);
+            originalDistance = 0;
+        }
 
         function mouseDown(ev) {
             ev.preventDefault();
@@ -597,9 +697,6 @@
 
             var deltaX = pageX - originalX,
                 deltaY = pageY - originalY,
-                imgRect = self.elements.preview.getBoundingClientRect(),
-                top = transform.y + deltaY,
-                left = transform.x + deltaX,
                 newCss = {};
 
             if (ev.type == 'touchmove') {
@@ -620,19 +717,7 @@
                 }
             }
 
-            if (self.options.enforceBoundary) {
-                if (vpRect.top > imgRect.top + deltaY && vpRect.bottom < imgRect.bottom + deltaY) {
-                    transform.y = top;
-                }
-
-                if (vpRect.left > imgRect.left + deltaX && vpRect.right < imgRect.right + deltaX) {
-                    transform.x = left;
-                }
-            }
-            else {
-                transform.y = top;
-                transform.x = left;
-            }
+            assignTransformCoordinates(deltaX, deltaY);
 
             newCss[CSS_TRANSFORM] = transform.toString();
             css(self.elements.preview, newCss);
@@ -654,6 +739,7 @@
         }
 
         self.elements.overlay.addEventListener('mousedown', mouseDown);
+        self.elements.viewport.addEventListener('keydown', keyDown);
         self.elements.overlay.addEventListener('touchstart', mouseDown);
     }
 
@@ -672,9 +758,28 @@
     var _debouncedOverlay = debounce(_updateOverlay, 500);
 
     function _triggerUpdate() {
-        var self = this;
-        if (_isVisible.call(self)) {
-            self.options.update.call(self, self.get());
+        var self = this,
+            data = self.get(),
+            ev; 
+
+        if (!_isVisible.call(self)) {
+            return;
+        }
+
+        self.options.update.call(self, data);
+        if (self.$) {
+            self.$(self.element).trigger('update', data)
+        }
+        else {
+            var ev;
+            if (window.CustomEvent) {
+                ev = new CustomEvent('update', { detail: data });
+            } else {
+                ev = document.createEvent('CustomEvent');
+                ev.initCustomEvent('update', true, true, data);
+            }
+
+            self.element.dispatchEvent(ev);
         }
     }
 
@@ -729,12 +834,16 @@
 
             zoomer.min = fix(minZoom, 4);
             zoomer.max = fix(maxZoom, 4);
-            initialZoom = Math.max((boundaryData.width / imgData.width), (boundaryData.height / imgData.height));
+            var defaultInitialZoom = Math.max((boundaryData.width / imgData.width), (boundaryData.height / imgData.height));
+            initialZoom = self.data.boundZoom !== null ? self.data.boundZoom : defaultInitialZoom;
             _setZoomerVal.call(self, initialZoom);
             dispatchChange(zoomer);
         }
-
-        self._currentZoom = transformReset.scale = initialZoom;
+        else {
+            self._currentZoom = initialZoom;
+        }
+        
+        transformReset.scale = self._currentZoom;
         cssReset[CSS_TRANSFORM] = transformReset.toString();
         css(img, cssReset);
 
@@ -857,6 +966,10 @@
         canvas.width = outWidth;
         canvas.height = outHeight;
 
+        if (data.backgroundColor) {
+            ctx.fillStyle = data.backgroundColor;
+            ctx.fillRect(0, 0, outWidth, outHeight);
+        }
         ctx.drawImage(img, left, top, width, height, 0, 0, outWidth, outHeight);
         if (circle) {
             ctx.fillStyle = '#fff';
@@ -872,7 +985,8 @@
     function _bind(options, cb) {
         var self = this,
             url,
-            points = [];
+            points = [],
+            zoom = null;
 
         if (typeof (options) === 'string') {
             url = options;
@@ -889,6 +1003,7 @@
         else {
             url = options.url;
             points = options.points || [];
+            zoom = typeof(options.zoom) === 'undefined' ? null : options.zoom;
         }
 
         self.data.bound = false;
@@ -896,6 +1011,7 @@
         self.data.points = (points || self.data.points).map(function (p) {
             return parseFloat(p);
         });
+        self.data.boundZoom = zoom;
         var prom = loadImage(url, self.elements.img);
         prom.then(function () {
             if (self.options.useCanvas) {
@@ -921,8 +1037,10 @@
             vpData = self.elements.viewport.getBoundingClientRect(),
             x1 = vpData.left - imgData.left,
             y1 = vpData.top - imgData.top,
-            x2 = x1 + vpData.width,
-            y2 = y1 + vpData.height,
+            widthDiff = (vpData.width - self.elements.viewport.offsetWidth) / 2,
+            heightDiff = (vpData.height - self.elements.viewport.offsetHeight) / 2,
+            x2 = x1 + self.elements.viewport.offsetWidth + widthDiff,
+            y2 = y1 + self.elements.viewport.offsetHeight + heightDiff,
             scale = self._currentZoom;
 
         if (scale === Infinity || isNaN(scale)) {
@@ -956,6 +1074,8 @@
             size = opts.size,
             format = opts.format,
             quality = opts.quality,
+            backgroundColor = opts.backgroundColor,
+            circle = typeof opts.circle === 'boolean' ? opts.circle : (self.options.viewport.type === 'circle'),
             vpRect = self.elements.viewport.getBoundingClientRect(),
             ratio = vpRect.width / vpRect.height,
             prom;
@@ -981,8 +1101,9 @@
             data.quality = quality;
         }
 
-        data.circle = self.options.viewport.type === 'circle';
+        data.circle = circle;
         data.url = self.data.url;
+        data.backgroundColor = backgroundColor;
 
         prom = new Promise(function (resolve, reject) {
             if (type === 'canvas') {
@@ -1048,6 +1169,9 @@
                 else if (opts === 'result') {
                     return singleInst.result.apply(singleInst, args);
                 }
+                else if (opts === 'bind') {
+                    return singleInst.bind.apply(singleInst, args);
+                }
 
                 return this.each(function () {
                     var i = $(this).data('croppie');
@@ -1068,6 +1192,7 @@
             else {
                 return this.each(function () {
                     var i = new Croppie(this, opts);
+                    i.$ = $;
                     $(this).data('croppie', i);
                 });
             }
