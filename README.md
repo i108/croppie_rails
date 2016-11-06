@@ -1,5 +1,7 @@
 # Croppie Rails
 
+[![Gem Version](https://badge.fury.io/rb/croppie_rails.svg)](https://badge.fury.io/rb/croppie_rails)
+
 A gem to automate using [Croppie](http://foliotek.github.io/Croppie) with Rails
 
 ## Usage
