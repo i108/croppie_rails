@@ -5,6 +5,6 @@ describe CroppieRails do
 
   it "should return version correctly" do
     expect(CroppieRails::VERSION).to be_a_kind_of(String)
-    expect(CroppieRails::VERSION).to eq '2.3.0'
+    expect(CroppieRails::VERSION).to eq '2.4.0'
   end
 end
